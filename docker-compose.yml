@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./credentials.json:/app/credentials.json:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PUSH_API_KEY=my-secret-key-123
+    restart: unless-stopped

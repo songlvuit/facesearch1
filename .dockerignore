@@ -1,0 +1,9 @@
+data/
+backend/static/
+frontend/node_modules/
+**/__pycache__/
+**/*.pyc
+.venv/
+venv/
+.DS_Store
+credentials.json
