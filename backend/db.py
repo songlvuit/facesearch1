@@ -53,7 +53,7 @@ def init_db() -> None:
     # Migrate older DBs
     with get_conn() as c:
         existing = {r[1] for r in c.execute("PRAGMA table_info(photos)")}
-        for col in ("drive_link TEXT", "thumbnail_path TEXT", "folder_id TEXT"):
+        for col in ("drive_link TEXT", "thumbnail_path TEXT", "folder_id TEXT", "fullsize_path TEXT"):
             name = col.split()[0]
             if name not in existing:
                 c.execute(f"ALTER TABLE photos ADD COLUMN {col}")
@@ -64,17 +64,18 @@ def init_db() -> None:
 # ── Photos ────────────────────────────────────────────────────────────────────
 
 def upsert_photo(file_id, file_name, local_path,
-                 drive_link=None, thumbnail_path=None, folder_id=None) -> int:
+                 drive_link=None, thumbnail_path=None, fullsize_path=None, folder_id=None) -> int:
     with get_conn() as c:
         c.execute(
-            """INSERT INTO photos (file_id,file_name,local_path,drive_link,thumbnail_path,folder_id,created_at)
-               VALUES (?,?,?,?,?,?,?)
+            """INSERT INTO photos (file_id,file_name,local_path,drive_link,thumbnail_path,fullsize_path,folder_id,created_at)
+               VALUES (?,?,?,?,?,?,?,?)
                ON CONFLICT(file_id) DO UPDATE SET
                  file_name=excluded.file_name, local_path=excluded.local_path,
                  drive_link=COALESCE(excluded.drive_link,drive_link),
                  thumbnail_path=COALESCE(excluded.thumbnail_path,thumbnail_path),
+                 fullsize_path=COALESCE(excluded.fullsize_path,fullsize_path),
                  folder_id=COALESCE(excluded.folder_id,folder_id)""",
-            (file_id, file_name, local_path, drive_link, thumbnail_path,
+            (file_id, file_name, local_path, drive_link, thumbnail_path, fullsize_path,
              folder_id, datetime.utcnow().isoformat()),
         )
         return c.execute("SELECT id FROM photos WHERE file_id=?", (file_id,)).fetchone()["id"]

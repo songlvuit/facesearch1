@@ -40,18 +40,20 @@ def _run(job_id: str, folder_id: str, skip_existing: bool):
                 _jobs[job_id]["errors"].append({"file": f["name"], "error": str(e)})
             continue
 
-        # 2. Thumbnail
+        # 2. Thumbnail + fullsize
+        thumb, full = None, None
         try:
-            thumb = thumbnail_utils.make(local, f["id"])
+            thumb, full = thumbnail_utils.make(local, f["id"])
             _upd(job_id, thumbnailed=_jobs[job_id]["thumbnailed"]+1)
         except Exception:
-            thumb = None
+            pass
 
         # 3. Save metadata
         pid = db.upsert_photo(
             file_id=f["id"], file_name=f["name"], local_path=str(local),
             drive_link=DRIVE_VIEW.format(f["id"]),
             thumbnail_path=str(thumb) if thumb else None,
+            fullsize_path=str(full) if full else None,
             folder_id=folder_id,
         )
 

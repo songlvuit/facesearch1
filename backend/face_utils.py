@@ -1,87 +1,44 @@
-"""Face embedding extraction (YOLOv11 detect + DeepFace Facenet512 embed) + vectorised search."""
+"""Face embedding extraction (InsightFace: SCRFD detect + ArcFace embed) + vectorised search."""
 from __future__ import annotations
 from pathlib import Path
 import numpy as np
 
-EMBED_MODEL  = "Facenet512"
-YOLO_MODEL_PATH = Path(__file__).parent.parent / "models" / "yolov11_face.pt"
-CONF_THRESHOLD  = 0.25   # YOLO confidence threshold
-FACE_PAD        = 0.15   # padding ratio around detected face box
+DET_SIZE = (640, 640)   # detection input size
+DET_THRESH = 0.5        # face detection confidence threshold
 
-_yolo_model = None
+_app = None
 
 
-def _get_yolo():
-    global _yolo_model
-    if _yolo_model is None:
-        from ultralytics import YOLO
-        if not YOLO_MODEL_PATH.exists():
-            raise FileNotFoundError(
-                f"YOLO model not found at {YOLO_MODEL_PATH}. "
-                "Đặt file model vào thư mục models/yolov11_face.pt"
-            )
-        _yolo_model = YOLO(str(YOLO_MODEL_PATH))
-    return _yolo_model
+def _get_app():
+    global _app
+    if _app is None:
+        import insightface
+        _app = insightface.app.FaceAnalysis(
+            name="buffalo_l",           # SCRFD detector + ArcFace R100 embedder
+            providers=["CPUExecutionProvider"],
+        )
+        _app.prepare(ctx_id=0, det_size=DET_SIZE, det_thresh=DET_THRESH)
+    return _app
 
 
 class NoFaceError(ValueError):
     pass
 
 
-def _detect_and_crop(image_path: str | Path):
-    """Run YOLOv11 on image, return list of cropped face arrays (numpy BGR)."""
+def extract_embedding(image_path: str | Path) -> list[float]:
+    """Detect + embed với InsightFace. Trả về embedding của mặt lớn nhất."""
     import cv2
     img = cv2.imread(str(image_path))
     if img is None:
         raise NoFaceError(f"Cannot read image: {image_path}")
 
-    h, w = img.shape[:2]
-    results = _get_yolo()(str(image_path), conf=CONF_THRESHOLD, verbose=False)
-    boxes = results[0].boxes
-
-    if boxes is None or len(boxes) == 0:
+    faces = _get_app().get(img)
+    if not faces:
         raise NoFaceError(f"No face detected in {image_path}")
 
-    crops = []
-    for box in boxes.xyxy.cpu().numpy():
-        x1, y1, x2, y2 = box[:4]
-        # add padding
-        pw = (x2 - x1) * FACE_PAD
-        ph = (y2 - y1) * FACE_PAD
-        x1 = max(0, int(x1 - pw))
-        y1 = max(0, int(y1 - ph))
-        x2 = min(w, int(x2 + pw))
-        y2 = min(h, int(y2 + ph))
-        crops.append(img[y1:y2, x1:x2])
-
-    return crops
-
-
-def extract_embedding(image_path: str | Path) -> list[float]:
-    """Detect face with YOLOv11, embed largest crop with Facenet512."""
-    from deepface import DeepFace
-    import cv2
-
-    crops = _detect_and_crop(image_path)
-    crop = max(crops, key=lambda c: c.shape[0] * c.shape[1])
-
-    # DeepFace accepts numpy array (BGR) directly — no temp file needed
-    crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-    try:
-        res = DeepFace.represent(
-            crop_rgb,
-            model_name=EMBED_MODEL,
-            detector_backend="skip",
-            enforce_detection=False,
-            align=False,
-        )
-        if not res:
-            raise NoFaceError(f"Embedding failed for {image_path}")
-        return res[0]["embedding"]
-    except Exception as e:
-        if isinstance(e, NoFaceError):
-            raise
-        raise NoFaceError(str(e)) from e
+    # Lấy mặt có bbox lớn nhất
+    face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+    return face.embedding.tolist()
 
 
 def build_matrix(embeddings: list[dict]) -> tuple[np.ndarray, list[int]]:
@@ -103,6 +60,6 @@ def search(query_emb: list[float], embeddings: list[dict],
     mask = sims >= threshold
     if not mask.any():
         return []
-    idx  = np.where(mask)[0]
-    top  = idx[np.argsort(-sims[idx])[:top_k]]
+    idx = np.where(mask)[0]
+    top = idx[np.argsort(-sims[idx])[:top_k]]
     return [{"photo_id": ids[i], "similarity": float(sims[i])} for i in top]

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Tag, ExternalLink } from 'lucide-react'
+import { X, Tag, ExternalLink, Download } from 'lucide-react'
 import clsx from 'clsx'
 import { addTag, removeTag } from '../api/client'
 import { useQueryClient } from '@tanstack/react-query'
@@ -48,16 +48,25 @@ export default function PhotoCard({ photo, similarity }) {
           </div>
         )}
 
-        {/* Drive link — appears on hover */}
-        {photo.drive_link && (
-          <a href={photo.drive_link} target="_blank" rel="noreferrer"
-            onClick={e => e.stopPropagation()}
-            title="Xem trên Google Drive"
-            className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity
-                       bg-white/90 hover:bg-white p-1.5 rounded-lg shadow text-gray-600 hover:text-brand-600">
-            <ExternalLink size={13} />
-          </a>
-        )}
+        {/* Hover actions */}
+        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {photo.drive_link && (
+            <a href={photo.drive_link} target="_blank" rel="noreferrer"
+              onClick={e => e.stopPropagation()}
+              title="Xem trên Google Drive"
+              className="bg-white/90 hover:bg-white p-1.5 rounded-lg shadow text-gray-600 hover:text-brand-600">
+              <ExternalLink size={13} />
+            </a>
+          )}
+          {photo.download_url && (
+            <a href={photo.download_url} download
+              onClick={e => e.stopPropagation()}
+              title="Tải ảnh về"
+              className="bg-white/90 hover:bg-white p-1.5 rounded-lg shadow text-gray-600 hover:text-green-600">
+              <Download size={13} />
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Body */}
