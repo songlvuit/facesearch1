@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
-import { ScanFace, Images, HardDrive, Activity, LogOut, ShieldCheck } from 'lucide-react'
+import { ScanFace, Images, HardDrive, Activity, LogOut } from 'lucide-react'
 import clsx from 'clsx'
 import SearchPage  from './pages/SearchPage'
 import LibraryPage from './pages/LibraryPage'
@@ -8,12 +8,7 @@ import DrivePage   from './pages/DrivePage'
 import LoginPage   from './pages/LoginPage'
 import AdminGuard  from './components/AdminGuard'
 
-const PUBLIC_NAV = [
-  { to: '/',        icon: ScanFace, label: 'Tìm khuôn mặt' },
-  { to: '/library', icon: Images,   label: 'Thư viện'       },
-]
-
-function Sidebar({ showAdmin, onLogout }) {
+function AdminSidebar({ onLogout }) {
   const navigate = useNavigate()
 
   function logout() {
@@ -30,12 +25,16 @@ function Sidebar({ showAdmin, onLogout }) {
         </div>
         <div>
           <p className="font-bold text-gray-900 text-sm leading-tight">Face Search</p>
-          <p className="text-xs text-gray-400 leading-tight">Tìm ảnh theo khuôn mặt</p>
+          <p className="text-xs text-gray-400 leading-tight">Admin</p>
         </div>
       </div>
 
       <nav className="space-y-1 flex-1">
-        {PUBLIC_NAV.map(({ to, icon: Icon, label }) => (
+        {[
+          { to: '/',        icon: ScanFace,   label: 'Tìm khuôn mặt' },
+          { to: '/library', icon: Images,     label: 'Thư viện'       },
+          { to: '/admin',   icon: HardDrive,  label: 'Google Drive'   },
+        ].map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) => clsx(
               'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
@@ -45,34 +44,10 @@ function Sidebar({ showAdmin, onLogout }) {
           </NavLink>
         ))}
 
-        {/* Divider */}
-        <div className="pt-3 pb-1 px-3">
-          <p className="text-xs text-gray-300 font-medium uppercase tracking-wider">Quản trị</p>
-        </div>
-
-        {showAdmin ? (
-          <>
-            <NavLink to="/admin"
-              className={({ isActive }) => clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-                isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-              )}>
-              <HardDrive size={17} /> Google Drive
-            </NavLink>
-            <button onClick={logout}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all w-full text-left">
-              <LogOut size={17} /> Đăng xuất
-            </button>
-          </>
-        ) : (
-          <NavLink to="/admin/login"
-            className={({ isActive }) => clsx(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-              isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-            )}>
-            <ShieldCheck size={17} /> Đăng nhập Admin
-          </NavLink>
-        )}
+        <button onClick={logout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all w-full text-left">
+          <LogOut size={17} /> Đăng xuất
+        </button>
       </nav>
 
       <div className="px-3 pt-4 border-t border-gray-100">
@@ -85,10 +60,10 @@ function Sidebar({ showAdmin, onLogout }) {
   )
 }
 
-function MainLayout({ showAdmin, onLogout }) {
+function AdminLayout({ onLogout }) {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar showAdmin={showAdmin} onLogout={onLogout} />
+      <AdminSidebar onLogout={onLogout} />
       <main className="flex-1 overflow-y-auto">
         <Routes>
           <Route path="/"        element={<SearchPage  />} />
@@ -97,6 +72,16 @@ function MainLayout({ showAdmin, onLogout }) {
           <Route path="*"        element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+    </div>
+  )
+}
+
+function PublicLayout() {
+  return (
+    <div className="h-screen bg-gray-50 overflow-y-auto">
+      <Routes>
+        <Route path="*" element={<SearchPage />} />
+      </Routes>
     </div>
   )
 }
@@ -117,7 +102,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/admin/login" element={<LoginPage onLogin={() => { setIsAdmin(true); window.dispatchEvent(new Event('auth-change')) }} />} />
-      <Route path="*" element={<MainLayout showAdmin={isAdmin} onLogout={() => setIsAdmin(false)} />} />
+      <Route path="*" element={
+        isAdmin
+          ? <AdminLayout onLogout={() => setIsAdmin(false)} />
+          : <PublicLayout />
+      } />
     </Routes>
   )
 }
