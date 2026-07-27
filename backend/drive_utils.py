@@ -45,7 +45,7 @@ def list_images(folder_id: str) -> list[dict]:
 def download_file_bytes(file_id: str) -> bytes:
     svc = _service()
     buf = io.BytesIO()
-    dl  = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id))
+    dl  = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id, supportsAllDrives=True))
     done = False
     while not done:
         _, done = dl.next_chunk()
@@ -58,7 +58,7 @@ def download_image(file_id: str, file_name: str) -> Path:
         return dest
     svc = _service()
     buf = io.BytesIO()
-    dl  = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id))
+    dl  = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id, supportsAllDrives=True))
     done = False
     while not done:
         _, done = dl.next_chunk()

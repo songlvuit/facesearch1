@@ -8,6 +8,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PUSH_API_KEY=${PUSH_API_KEY}
+      - ADMIN_PASSWORD=Hana@#2925
+      - ADMIN_SECRET=songlv
     expose:
       - "8000"
 

@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 import db
-from routers import photos, search, sync
+from routers import photos, search, sync, auth
 
 # ── App ───────────────────────────────────────────────────────────────────────
 db.init_db()
@@ -27,6 +27,7 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(auth.router)
 app.include_router(photos.router)
 app.include_router(search.router)
 app.include_router(sync.router)

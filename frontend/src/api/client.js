@@ -1,7 +1,20 @@
 const BASE = '/api'
 
+function authHeaders() {
+  const token = localStorage.getItem('admin_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function req(path, opts = {}) {
-  const res = await fetch(`${BASE}${path}`, opts)
+  const res = await fetch(`${BASE}${path}`, {
+    ...opts,
+    headers: { ...authHeaders(), ...(opts.headers || {}) },
+  })
+  if (res.status === 401) {
+    localStorage.removeItem('admin_token')
+    window.location.href = '/admin/login'
+    throw new Error('Unauthorized')
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || 'Request failed')

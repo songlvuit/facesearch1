@@ -1,11 +1,12 @@
 """Full-pipeline sync: download → thumbnail → embedding → DB (one pass per photo)."""
 import threading, uuid
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import db, drive_utils, face_utils, thumbnail_utils
+from routers.auth import require_admin
 
-router = APIRouter(prefix="/api/sync", tags=["sync"])
+router = APIRouter(prefix="/api/sync", tags=["sync"], dependencies=[Depends(require_admin)])
 
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
