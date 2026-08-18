@@ -29,12 +29,8 @@ async def search_by_face(
     file: UploadFile = File(...),
     top_k: int = Form(default=12),
     threshold: float = Form(default=0.4),
+    event_id: int = Form(default=None),
 ):
-    if _cache["matrix"] is None:
-        _refresh()
-    if _cache["matrix"] is None:
-        raise HTTPException(400, "No face index yet. Run a sync first.")
-
     suffix = Path(file.filename or "img").suffix or ".jpg"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(await file.read())
@@ -49,10 +45,20 @@ async def search_by_face(
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    hits = face_utils.search(
-        q_emb, _cache["raw"], top_k, threshold,
-        matrix_cache=(_cache["matrix"], _cache["ids"]),
-    )
+    if event_id is not None:
+        raw = db.get_embeddings_by_event(event_id)
+        if not raw:
+            return {"results": [], "total": 0}
+        matrix_cache = None
+    else:
+        if _cache["matrix"] is None:
+            _refresh()
+        if _cache["matrix"] is None:
+            raise HTTPException(400, "No face index yet. Run a sync first.")
+        raw = _cache["raw"]
+        matrix_cache = (_cache["matrix"], _cache["ids"])
+
+    hits = face_utils.search(q_emb, raw, top_k, threshold, matrix_cache=matrix_cache)
 
     results = []
     for h in hits:

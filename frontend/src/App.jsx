@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
-import { ScanFace, Images, HardDrive, Activity, LogOut } from 'lucide-react'
+import { ScanFace, Images, HardDrive, Activity, LogOut, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
-import SearchPage  from './pages/SearchPage'
-import LibraryPage from './pages/LibraryPage'
-import DrivePage   from './pages/DrivePage'
-import LoginPage   from './pages/LoginPage'
-import AdminGuard  from './components/AdminGuard'
+import SearchPage      from './pages/SearchPage'
+import LibraryPage     from './pages/LibraryPage'
+import DrivePage       from './pages/DrivePage'
+import EventsPage      from './pages/EventsPage'
+import EventSearchPage from './pages/EventSearchPage'
+import EventsAdminPage from './pages/EventsAdminPage'
+import LoginPage       from './pages/LoginPage'
+import AdminGuard      from './components/AdminGuard'
 
 function AdminSidebar({ onLogout }) {
   const navigate = useNavigate()
@@ -31,11 +34,13 @@ function AdminSidebar({ onLogout }) {
 
       <nav className="space-y-1 flex-1">
         {[
-          { to: '/',        icon: ScanFace,   label: 'Tìm khuôn mặt' },
-          { to: '/library', icon: Images,     label: 'Thư viện'       },
-          { to: '/admin',   icon: HardDrive,  label: 'Google Drive'   },
-        ].map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={to === '/'}
+          { to: '/',           icon: ScanFace,     label: 'Tìm khuôn mặt', end: true },
+          { to: '/library',    icon: Images,       label: 'Thư viện'               },
+          { to: '/events',     icon: CalendarDays, label: 'Sự kiện'                },
+          { to: '/admin',      icon: HardDrive,    label: 'Google Drive'            },
+          { to: '/admin/events', icon: CalendarDays, label: 'Quản lý sự kiện'      },
+        ].map(({ to, icon: Icon, label, end }) => (
+          <NavLink key={to} to={to} end={!!end}
             className={({ isActive }) => clsx(
               'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
               isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
@@ -66,21 +71,33 @@ function AdminLayout({ onLogout }) {
       <AdminSidebar onLogout={onLogout} />
       <main className="flex-1 overflow-y-auto">
         <Routes>
-          <Route path="/"        element={<SearchPage  />} />
-          <Route path="/library" element={<LibraryPage />} />
-          <Route path="/admin"   element={<AdminGuard><DrivePage /></AdminGuard>} />
-          <Route path="*"        element={<Navigate to="/" replace />} />
+          <Route path="/"              element={<SearchPage />} />
+          <Route path="/library"       element={<LibraryPage />} />
+          <Route path="/events"        element={<EventsPage />} />
+          <Route path="/events/:id"    element={<EventSearchPage />} />
+          <Route path="/admin"         element={<AdminGuard><DrivePage /></AdminGuard>} />
+          <Route path="/admin/events"  element={<AdminGuard><EventsAdminPage /></AdminGuard>} />
+          <Route path="*"              element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
   )
 }
 
+function RedirectToLogin() {
+  return <Navigate to="/admin/login" replace />
+}
+
 function PublicLayout() {
   return (
     <div className="h-screen bg-gray-50 overflow-y-auto">
       <Routes>
-        <Route path="*" element={<SearchPage />} />
+        <Route path="/"           element={<SearchPage />} />
+        <Route path="/library"    element={<LibraryPage />} />
+        <Route path="/events"     element={<EventsPage />} />
+        <Route path="/events/:id" element={<EventSearchPage />} />
+        <Route path="/admin/*"    element={<RedirectToLogin />} />
+        <Route path="*"           element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   )

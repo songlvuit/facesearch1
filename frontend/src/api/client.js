@@ -32,11 +32,30 @@ export const addTag       = (id, tag) => req(`/photos/${id}/tags`, {
 export const removeTag    = (id, tag) => req(`/photos/${id}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' })
 
 // Search
-export const searchFace   = (file, topK = 12, threshold = 0.4) => {
+export const searchFace = (file, topK = 12, threshold = 0.4, eventId = null) => {
   const fd = new FormData()
   fd.append('file', file); fd.append('top_k', topK); fd.append('threshold', threshold)
+  if (eventId != null) fd.append('event_id', eventId)
   return req('/search', { method: 'POST', body: fd })
 }
+
+// Events
+export const getEvents         = ()                      => req('/events')
+export const createEvent       = (name, description)     => req('/events', {
+  method: 'POST', headers: {'Content-Type':'application/json'},
+  body: JSON.stringify({ name, description })
+})
+export const updateEvent       = (id, name, description) => req(`/events/${id}`, {
+  method: 'PUT', headers: {'Content-Type':'application/json'},
+  body: JSON.stringify({ name, description })
+})
+export const deleteEvent       = (id)                    => req(`/events/${id}`, { method: 'DELETE' })
+export const addFolderToEvent  = (id, folder_id)         => req(`/events/${id}/folders`, {
+  method: 'POST', headers: {'Content-Type':'application/json'},
+  body: JSON.stringify({ folder_id })
+})
+export const removeFolderFromEvent = (id, folder_id)     =>
+  req(`/events/${id}/folders/${encodeURIComponent(folder_id)}`, { method: 'DELETE' })
 export const invalidateCache = () => req('/search/invalidate', { method: 'POST' })
 
 // Sync

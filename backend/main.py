@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 import db
-from routers import photos, search, sync, auth
+from routers import photos, search, sync, auth, events
 
 # ── App ───────────────────────────────────────────────────────────────────────
 db.init_db()
@@ -31,6 +31,7 @@ app.include_router(auth.router)
 app.include_router(photos.router)
 app.include_router(search.router)
 app.include_router(sync.router)
+app.include_router(events.router)
 
 
 @app.get("/api/health")

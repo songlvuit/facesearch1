@@ -17,6 +17,17 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with get_conn() as c:
         c.executescript("""
+            CREATE TABLE IF NOT EXISTS events (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                description TEXT,
+                created_at  TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS event_folders (
+                event_id  INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                folder_id TEXT NOT NULL,
+                PRIMARY KEY (event_id, folder_id)
+            );
             CREATE TABLE IF NOT EXISTS photos (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
                 file_id        TEXT UNIQUE NOT NULL,
@@ -200,6 +211,77 @@ def get_unindexed_photos() -> list:
         return c.execute(
             "SELECT * FROM photos WHERE id NOT IN (SELECT photo_id FROM face_embeddings)"
         ).fetchall()
+
+
+# ── Events ───────────────────────────────────────────────────────────────────
+
+def create_event(name: str, description: str | None = None) -> int:
+    with get_conn() as c:
+        cur = c.execute(
+            "INSERT INTO events (name,description,created_at) VALUES (?,?,?)",
+            (name, description, datetime.utcnow().isoformat()))
+        return cur.lastrowid
+
+
+def get_all_events() -> list:
+    with get_conn() as c:
+        rows = c.execute("SELECT * FROM events ORDER BY created_at DESC").fetchall()
+        result = []
+        for r in rows:
+            folders = [x[0] for x in c.execute(
+                "SELECT folder_id FROM event_folders WHERE event_id=?", (r["id"],))]
+            photo_count = c.execute(
+                f"SELECT COUNT(*) FROM photos WHERE folder_id IN ({','.join('?'*len(folders))})",
+                folders).fetchone()[0] if folders else 0
+            result.append({**dict(r), "folders": folders, "photo_count": photo_count})
+        return result
+
+
+def get_event(event_id: int) -> dict | None:
+    with get_conn() as c:
+        r = c.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+        if not r:
+            return None
+        folders = [x[0] for x in c.execute(
+            "SELECT folder_id FROM event_folders WHERE event_id=?", (event_id,))]
+        return {**dict(r), "folders": folders}
+
+
+def update_event(event_id: int, name: str, description: str | None) -> None:
+    with get_conn() as c:
+        c.execute("UPDATE events SET name=?,description=? WHERE id=?",
+                  (name, description, event_id))
+
+
+def delete_event(event_id: int) -> None:
+    with get_conn() as c:
+        c.execute("DELETE FROM events WHERE id=?", (event_id,))
+
+
+def add_folder_to_event(event_id: int, folder_id: str) -> None:
+    with get_conn() as c:
+        c.execute("INSERT OR IGNORE INTO event_folders (event_id,folder_id) VALUES (?,?)",
+                  (event_id, folder_id))
+
+
+def remove_folder_from_event(event_id: int, folder_id: str) -> None:
+    with get_conn() as c:
+        c.execute("DELETE FROM event_folders WHERE event_id=? AND folder_id=?",
+                  (event_id, folder_id))
+
+
+def get_embeddings_by_event(event_id: int) -> list[dict]:
+    with get_conn() as c:
+        folders = [x[0] for x in c.execute(
+            "SELECT folder_id FROM event_folders WHERE event_id=?", (event_id,))]
+        if not folders:
+            return []
+        placeholders = ",".join("?" * len(folders))
+        return [{"photo_id": r[0], "embedding": json.loads(r[1])}
+                for r in c.execute(
+                    f"SELECT fe.photo_id,fe.embedding_json FROM face_embeddings fe "
+                    f"JOIN photos p ON p.id=fe.photo_id WHERE p.folder_id IN ({placeholders})",
+                    folders)]
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────

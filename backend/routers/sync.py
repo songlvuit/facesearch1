@@ -157,6 +157,15 @@ def _run_import(job_id: str, file_id: str):
     except Exception as e:
         _upd(job_id, status="error", error=str(e)); return
 
+    # Auto-register all folder_ids found in the JSON so they appear in synced_folders
+    seen_folders: dict = {}
+    for r in records:
+        fid = r.get("folder_id")
+        if fid and fid not in seen_folders:
+            seen_folders[fid] = r.get("folder_name")
+    for fid, fname in seen_folders.items():
+        db.upsert_folder(fid, fname)
+
     _upd(job_id, status="running", total=len(records), done=0, indexed=0, skipped=0, errors=[])
     for i, r in enumerate(records):
         try:
