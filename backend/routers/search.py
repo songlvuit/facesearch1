@@ -29,7 +29,7 @@ async def search_by_face(
     file: UploadFile = File(...),
     top_k: int = Form(default=12),
     threshold: float = Form(default=0.4),
-    event_id: int = Form(default=None),
+    event_slug: str = Form(default=None),
 ):
     suffix = Path(file.filename or "img").suffix or ".jpg"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -45,12 +45,13 @@ async def search_by_face(
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    if event_id is not None:
-        raw = db.get_embeddings_by_event(event_id)
+    if event_slug is not None:
+        ev = db.get_event_by_slug(event_slug)
+        raw = db.get_embeddings_by_event(ev["id"]) if ev else []
         if not raw:
             return {"results": [], "total": 0}
         matrix_cache = None
-    else:
+    elif event_slug is None:
         if _cache["matrix"] is None:
             _refresh()
         if _cache["matrix"] is None:

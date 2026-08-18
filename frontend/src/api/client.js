@@ -32,30 +32,30 @@ export const addTag       = (id, tag) => req(`/photos/${id}/tags`, {
 export const removeTag    = (id, tag) => req(`/photos/${id}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' })
 
 // Search
-export const searchFace = (file, topK = 12, threshold = 0.4, eventId = null) => {
+export const searchFace = (file, topK = 12, threshold = 0.4, eventSlug = null) => {
   const fd = new FormData()
   fd.append('file', file); fd.append('top_k', topK); fd.append('threshold', threshold)
-  if (eventId != null) fd.append('event_id', eventId)
+  if (eventSlug != null) fd.append('event_slug', eventSlug)
   return req('/search', { method: 'POST', body: fd })
 }
 
 // Events
-export const getEvents         = ()                      => req('/events')
-export const createEvent       = (name, description)     => req('/events', {
+export const getEvents             = ()                        => req('/events')
+export const createEvent           = (name, description)       => req('/events', {
   method: 'POST', headers: {'Content-Type':'application/json'},
   body: JSON.stringify({ name, description })
 })
-export const updateEvent       = (id, name, description) => req(`/events/${id}`, {
+export const updateEvent           = (slug, name, description) => req(`/events/${slug}`, {
   method: 'PUT', headers: {'Content-Type':'application/json'},
   body: JSON.stringify({ name, description })
 })
-export const deleteEvent       = (id)                    => req(`/events/${id}`, { method: 'DELETE' })
-export const addFolderToEvent  = (id, folder_id)         => req(`/events/${id}/folders`, {
+export const deleteEvent           = (slug)                    => req(`/events/${slug}`, { method: 'DELETE' })
+export const addFolderToEvent      = (slug, folder_id)         => req(`/events/${slug}/folders`, {
   method: 'POST', headers: {'Content-Type':'application/json'},
   body: JSON.stringify({ folder_id })
 })
-export const removeFolderFromEvent = (id, folder_id)     =>
-  req(`/events/${id}/folders/${encodeURIComponent(folder_id)}`, { method: 'DELETE' })
+export const removeFolderFromEvent = (slug, folder_id)         =>
+  req(`/events/${slug}/folders/${encodeURIComponent(folder_id)}`, { method: 'DELETE' })
 export const invalidateCache = () => req('/search/invalidate', { method: 'POST' })
 
 // Sync
@@ -67,7 +67,8 @@ export const startSync      = (folder_id, folder_name, skip_existing = true) =>
     body: JSON.stringify({ folder_id, folder_name, skip_existing }) })
 export const getSyncStatus  = (jobId)                  => req(`/sync/status/${jobId}`)
 export const startReindex     = ()         => req('/sync/reindex', { method: 'POST' })
-export const importColab      = (file_id)  => req('/sync/import-colab', {
+export const clearAllData     = ()         => req('/sync/clear-all', { method: 'POST' })
+export const importColab = (file_id, folder_name = null) => req('/sync/import-colab', {
   method: 'POST', headers: {'Content-Type':'application/json'},
-  body: JSON.stringify({ file_id })
+  body: JSON.stringify({ file_id, ...(folder_name ? { folder_name } : {}) })
 })

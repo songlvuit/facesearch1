@@ -1,7 +1,29 @@
 """SQLite database layer."""
-import json, sqlite3
+import json, re, sqlite3, unicodedata
 from datetime import datetime
 from pathlib import Path
+
+
+def _slugify(text: str) -> str:
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s-]", "", text)
+    text = re.sub(r"[\s-]+", "-", text).strip("-")
+    return text or "event"
+
+
+def _unique_slug(base: str, exclude_id: int | None = None) -> str:
+    slug, n = base, 1
+    with get_conn() as c:
+        while True:
+            row = c.execute(
+                "SELECT id FROM events WHERE slug=?" + (" AND id!=?" if exclude_id else ""),
+                (slug, exclude_id) if exclude_id else (slug,)
+            ).fetchone()
+            if not row:
+                return slug
+            slug = f"{base}-{n}"; n += 1
 
 DB_PATH = Path(__file__).parent.parent / "data" / "database.db"
 
@@ -20,6 +42,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS events (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT NOT NULL,
+                slug        TEXT UNIQUE NOT NULL DEFAULT '',
                 description TEXT,
                 created_at  TEXT NOT NULL
             );
@@ -70,6 +93,15 @@ def init_db() -> None:
                 c.execute(f"ALTER TABLE photos ADD COLUMN {col}")
     with get_conn() as c:
         c.execute("CREATE INDEX IF NOT EXISTS idx_folder ON photos(folder_id)")
+    # Migrate events table: add slug if missing
+    with get_conn() as c:
+        cols = {r[1] for r in c.execute("PRAGMA table_info(events)")}
+        if "slug" not in cols:
+            c.execute("ALTER TABLE events ADD COLUMN slug TEXT NOT NULL DEFAULT ''")
+            rows = c.execute("SELECT id, name FROM events").fetchall()
+            for row in rows:
+                slug = _unique_slug(_slugify(row[0]))
+                c.execute("UPDATE events SET slug=? WHERE id=?", (slug, row[1]))
 
 
 # ── Photos ────────────────────────────────────────────────────────────────────
@@ -216,10 +248,11 @@ def get_unindexed_photos() -> list:
 # ── Events ───────────────────────────────────────────────────────────────────
 
 def create_event(name: str, description: str | None = None) -> int:
+    slug = _unique_slug(_slugify(name))
     with get_conn() as c:
         cur = c.execute(
-            "INSERT INTO events (name,description,created_at) VALUES (?,?,?)",
-            (name, description, datetime.utcnow().isoformat()))
+            "INSERT INTO events (name,slug,description,created_at) VALUES (?,?,?,?)",
+            (name, slug, description, datetime.utcnow().isoformat()))
         return cur.lastrowid
 
 
@@ -237,6 +270,16 @@ def get_all_events() -> list:
         return result
 
 
+def get_event_by_slug(slug: str) -> dict | None:
+    with get_conn() as c:
+        r = c.execute("SELECT * FROM events WHERE slug=?", (slug,)).fetchone()
+        if not r:
+            return None
+        folders = [x[0] for x in c.execute(
+            "SELECT folder_id FROM event_folders WHERE event_id=?", (r["id"],))]
+        return {**dict(r), "folders": folders}
+
+
 def get_event(event_id: int) -> dict | None:
     with get_conn() as c:
         r = c.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -248,9 +291,10 @@ def get_event(event_id: int) -> dict | None:
 
 
 def update_event(event_id: int, name: str, description: str | None) -> None:
+    slug = _unique_slug(_slugify(name), exclude_id=event_id)
     with get_conn() as c:
-        c.execute("UPDATE events SET name=?,description=? WHERE id=?",
-                  (name, description, event_id))
+        c.execute("UPDATE events SET name=?,slug=?,description=? WHERE id=?",
+                  (name, slug, description, event_id))
 
 
 def delete_event(event_id: int) -> None:
@@ -282,6 +326,29 @@ def get_embeddings_by_event(event_id: int) -> list[dict]:
                     f"SELECT fe.photo_id,fe.embedding_json FROM face_embeddings fe "
                     f"JOIN photos p ON p.id=fe.photo_id WHERE p.folder_id IN ({placeholders})",
                     folders)]
+
+
+# ── Reset ────────────────────────────────────────────────────────────────────
+
+def clear_all_data() -> dict:
+    """Xóa toàn bộ ảnh, embeddings, tags, folders, events (giữ schema)."""
+    import shutil
+    DATA_DIR = DB_PATH.parent
+    for folder in ("photos", "thumbnails", "fullsize"):
+        d = DATA_DIR / folder
+        if d.exists():
+            shutil.rmtree(d)
+        d.mkdir(parents=True, exist_ok=True)
+    with get_conn() as c:
+        c.executescript("""
+            DELETE FROM face_embeddings;
+            DELETE FROM hashtags;
+            DELETE FROM event_folders;
+            DELETE FROM events;
+            DELETE FROM photos;
+            DELETE FROM synced_folders;
+        """)
+    return {"ok": True}
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────

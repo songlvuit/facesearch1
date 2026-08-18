@@ -1,10 +1,65 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { HardDrive, Plus, Trash2, RefreshCw, Play,
-         CheckCircle2, AlertCircle, Loader2, FolderOpen, ExternalLink } from 'lucide-react'
+         CheckCircle2, AlertCircle, Loader2, FolderOpen, ExternalLink, X } from 'lucide-react'
 import clsx from 'clsx'
 import { getSyncFolders, deleteSyncFolder, startSync,
-         getSyncStatus, getSyncStats, invalidateCache, startReindex, importColab } from '../api/client'
+         getSyncStatus, getSyncStats, invalidateCache, startReindex, importColab, clearAllData } from '../api/client'
+
+// ── Import Colab Modal ────────────────────────────────────────────────────────
+function ImportColabModal({ onClose, onSubmit }) {
+  const [fileId,     setFileId]     = useState('')
+  const [folderName, setFolderName] = useState('')
+
+  function submit(e) {
+    e.preventDefault()
+    if (!fileId.trim()) return
+    onSubmit(fileId.trim(), folderName.trim() || null)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="card p-6 w-full max-w-md space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">Import từ Colab</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">File ID của face_index.json *</label>
+            <input
+              className="input w-full text-sm font-mono"
+              placeholder="1A2B3C4D5E..."
+              value={fileId}
+              onChange={e => setFileId(e.target.value)}
+              autoFocus
+            />
+            <p className="text-xs text-gray-400 mt-1">Lấy từ bước cuối của Colab notebook</p>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Tên folder (tuỳ chọn)</label>
+            <input
+              className="input w-full text-sm"
+              placeholder="Vd: Tiệc tất niên 2024, Lễ tốt nghiệp..."
+              value={folderName}
+              onChange={e => setFolderName(e.target.value)}
+            />
+            <p className="text-xs text-gray-400 mt-1">Nếu để trống sẽ dùng tên có trong file JSON</p>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button type="submit" disabled={!fileId.trim()} className="btn-primary flex-1 justify-center">
+              Import
+            </button>
+            <button type="button" onClick={onClose} className="btn-secondary px-4">Huỷ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 // ── Stats bar ─────────────────────────────────────────────────────────────────
 function StatsBar({ s }) {
@@ -302,11 +357,22 @@ export default function DrivePage() {
     setReindexing(false); setReindexJobId(null); refresh()
   }
 
-  async function handleImportColab() {
-    const fileId = prompt('Nhập File ID của face_index.json trên Google Drive:')
-    if (!fileId?.trim()) return
+  const [showImportModal,  setShowImportModal]  = useState(false)
+  const [confirmClear,     setConfirmClear]     = useState(false)
+
+  async function handleClearAll() {
+    if (!confirmClear) { setConfirmClear(true); return }
     try {
-      const d = await importColab(fileId.trim())
+      await clearAllData()
+      setConfirmClear(false)
+      refresh()
+    } catch (e) { alert(e.message) }
+  }
+
+  async function handleImportColab(fileId, folderName) {
+    setShowImportModal(false)
+    try {
+      const d = await importColab(fileId, folderName)
       setReindexJobId(d.job_id)
       setReindexing(true)
     } catch (e) { alert(e.message) }
@@ -314,16 +380,40 @@ export default function DrivePage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      {showImportModal && (
+        <ImportColabModal
+          onClose={() => setShowImportModal(false)}
+          onSubmit={handleImportColab}
+        />
+      )}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="section-title">Google Drive & Database</h1>
           <p className="section-sub">Mỗi lần sync = tải ảnh + thumbnail + index face — tự động, 1 bước</p>
         </div>
         <div className="flex gap-2 items-start flex-wrap justify-end">
-          <button onClick={handleImportColab} disabled={reindexing}
+          <button onClick={() => setShowImportModal(true)} disabled={reindexing}
             className="btn-secondary">
             ☁️ Import từ Colab
           </button>
+          {confirmClear ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-600 font-medium">Xác nhận xoá tất cả?</span>
+              <button onClick={handleClearAll}
+                className="text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors font-medium">
+                Xoá
+              </button>
+              <button onClick={() => setConfirmClear(false)}
+                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+                Huỷ
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleClearAll}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors font-medium">
+              <Trash2 size={14} /> Xoá tất cả data
+            </button>
+          )}
           {stats?.unindexed > 0 && !reindexJobId && (
             <button onClick={handleReindex} disabled={reindexing}
               className="btn-secondary">

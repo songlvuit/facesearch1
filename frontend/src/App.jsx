@@ -74,7 +74,7 @@ function AdminLayout({ onLogout }) {
           <Route path="/"              element={<SearchPage />} />
           <Route path="/library"       element={<LibraryPage />} />
           <Route path="/events"        element={<EventsPage />} />
-          <Route path="/events/:id"    element={<EventSearchPage />} />
+          <Route path="/events/:slug"   element={<EventSearchPage />} />
           <Route path="/admin"         element={<AdminGuard><DrivePage /></AdminGuard>} />
           <Route path="/admin/events"  element={<AdminGuard><EventsAdminPage /></AdminGuard>} />
           <Route path="*"              element={<Navigate to="/" replace />} />
@@ -95,7 +95,7 @@ function PublicLayout() {
         <Route path="/"           element={<SearchPage />} />
         <Route path="/library"    element={<LibraryPage />} />
         <Route path="/events"     element={<EventsPage />} />
-        <Route path="/events/:id" element={<EventSearchPage />} />
+        <Route path="/events/:slug" element={<EventSearchPage />} />
         <Route path="/admin/*"    element={<RedirectToLogin />} />
         <Route path="*"           element={<Navigate to="/" replace />} />
       </Routes>

@@ -31,7 +31,7 @@ export default function EventsPage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {events.map(ev => (
-          <Link key={ev.id} to={`/events/${ev.id}`}
+          <Link key={ev.id} to={`/events/${ev.slug}`}
             className="card p-5 hover:shadow-md transition-shadow group flex flex-col gap-3">
             <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center group-hover:bg-brand-100 transition-colors">
               <ScanFace size={20} className="text-brand-600" />

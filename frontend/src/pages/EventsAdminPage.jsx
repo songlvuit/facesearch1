@@ -28,26 +28,26 @@ function EventRow({ ev, folders, onUpdate }) {
   const available = folders.filter(f => !allFolderIds.has(f.folder_id))
 
   async function save() {
-    await updateEvent(ev.id, name, desc || null)
+    await updateEvent(ev.slug, name, desc || null)
     qc.invalidateQueries(['events'])
     setEditing(false)
   }
 
   async function del() {
     if (!confirm(`Xoá sự kiện "${ev.name}"?`)) return
-    await deleteEvent(ev.id)
+    await deleteEvent(ev.slug)
     qc.invalidateQueries(['events'])
   }
 
   async function addFolder() {
     if (!selFolder) return
-    await addFolderToEvent(ev.id, selFolder)
+    await addFolderToEvent(ev.slug, selFolder)
     qc.invalidateQueries(['events'])
     setSelFolder(''); setAdding(false)
   }
 
   async function removeFolder(fid) {
-    await removeFolderFromEvent(ev.id, fid)
+    await removeFolderFromEvent(ev.slug, fid)
     qc.invalidateQueries(['events'])
   }
 

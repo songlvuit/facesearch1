@@ -6,7 +6,7 @@ import PhotoCard from '../components/PhotoCard'
 import { getEvents, searchFace } from '../api/client'
 
 export default function EventSearchPage() {
-  const { id } = useParams()
+  const { slug } = useParams()
   const [event,     setEvent]     = useState(null)
   const [file,      setFile]      = useState(null)
   const [preview,   setPreview]   = useState(null)
@@ -18,8 +18,8 @@ export default function EventSearchPage() {
   const [error,     setError]     = useState(null)
 
   useEffect(() => {
-    getEvents().then(evs => setEvent(evs.find(e => e.id === +id) || null))
-  }, [id])
+    getEvents().then(evs => setEvent(evs.find(e => e.slug === slug) || null))
+  }, [slug])
 
   function pick(f) {
     setFile(f); setPreview(URL.createObjectURL(f)); setResults(null); setError(null)
@@ -30,7 +30,7 @@ export default function EventSearchPage() {
   async function run() {
     if (!file) return
     setLoading(true); setError(null)
-    try { setResults((await searchFace(file, topK, threshold, +id)).results) }
+    try { setResults((await searchFace(file, topK, threshold, slug)).results) }
     catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }

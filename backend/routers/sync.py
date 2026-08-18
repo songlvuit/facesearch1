@@ -144,10 +144,11 @@ def start_reindex():
 
 
 class ImportBody(BaseModel):
-    file_id: str   # Google Drive file ID của face_index.json
+    file_id:     str            # Google Drive file ID của face_index.json
+    folder_name: str | None = None  # Tên override cho tất cả folder trong file
 
 
-def _run_import(job_id: str, file_id: str):
+def _run_import(job_id: str, file_id: str, folder_name_override: str | None = None):
     import json
     _upd(job_id, status="downloading")
     try:
@@ -162,7 +163,8 @@ def _run_import(job_id: str, file_id: str):
     for r in records:
         fid = r.get("folder_id")
         if fid and fid not in seen_folders:
-            seen_folders[fid] = r.get("folder_name")
+            # folder_name_override từ UI được ưu tiên hơn tên trong JSON
+            seen_folders[fid] = folder_name_override or r.get("folder_name")
     for fid, fname in seen_folders.items():
         db.upsert_folder(fid, fname)
 
@@ -193,7 +195,7 @@ def import_colab(body: ImportBody):
     job_id = str(uuid.uuid4())
     with _lock:
         _jobs[job_id] = dict(status="pending", total=0, done=0, indexed=0, skipped=0, errors=[])
-    threading.Thread(target=_run_import, args=(job_id, body.file_id), daemon=True).start()
+    threading.Thread(target=_run_import, args=(job_id, body.file_id, body.folder_name), daemon=True).start()
     return {"job_id": job_id}
 
 
@@ -237,3 +239,12 @@ def push_embeddings(body: PushBody):
         _jobs[job_id] = dict(status="pending", total=0, done=0, indexed=0, skipped=0, errors=[])
     threading.Thread(target=_run_push, args=(job_id, body.records), daemon=True).start()
     return {"job_id": job_id}
+
+
+
+@router.post("/clear-all")
+def clear_all():
+    """Xóa toàn bộ ảnh, embeddings, folders, events."""
+    result = db.clear_all_data()
+    # Invalidate search cache
+    return result
